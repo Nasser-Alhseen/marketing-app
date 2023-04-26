@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:data_users/login_screen.dart';
+import 'package:data_users/main.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -44,30 +45,17 @@ class _HomeState extends State<Home> {
   List result = [];
   List<DataRow> dataRows = [];
   bool isLoading = true;
-  @override
-  void initState() {
-    // TODO: implement initState
-    initial().then((value) {
-      setState(() {
-        isLoading = false;
-      });
-    });
-  }
 
-  Future initial() async {
-    GetStorage s = GetStorage();
-    s.write('balance', widget.balance);
-  }
 
   Future getData() async {
     Dio dio = Dio();
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     String apiUrl = 'https://marketing-data.onrender.com/data/search';
     Map<String, dynamic> requestBody = {
       "FBID": fbid.text,
       "first_name": first_name.text,
       "last_name": last_name.text,
-      "phone": phone.text,
+      "Phone": phone.text,
       "work": work.text,
       "hometown": hometown.text,
       "location": location.text,
@@ -82,20 +70,21 @@ class _HomeState extends State<Home> {
       "email": email.text,
       "gender": gender.text,
       "limit": limit.text,
-      "emailid":prefs.getString("email")
+      "emailid": prefs.getString("email")
     };
     print(requestBody);
     // Map requestBody = {"FBID": "100028524091148", "limit": 2, "emailid": "ali"};
-    print(requestBody);
     var response;
     try {
       response = await dio.get(apiUrl, data: requestBody);
       if (response.statusCode == 200) {
-        Map resdata={
-          "data":response.data['data'],
-          "balance":response.data['balance']
+        Map resdata = {
+          "data": response.data['data'],
+          "balance": response.data['blance']
         };
-        print('response' + resdata.toString());
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        balance = prefs.getInt(resdata['balance']);
+        print('response' + response.toString());
         return resdata;
       } else {
         // Failed sign-in
@@ -109,17 +98,21 @@ class _HomeState extends State<Home> {
   }
 
   Future getIds(List<String> ids) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
     Dio dio = Dio();
     Map<String, dynamic> requestBody = {
       'ids': ids,
-      "emailid": GetStorage().read('email')
+      "emailid": prefs.getString('email')
     };
     print(requestBody);
     try {
       var res = await dio.post('https://marketing-data.onrender.com/data/ids',
           data: requestBody);
       if (res.statusCode == 200) {
-        print(res.data['data']);
+        Map resdata = {"data": res.data['data'], "balance": res.data['blance']};
+        balance = prefs.getInt(resdata['balance']);
+        return resdata;
       } else {
         print('res');
       }
@@ -269,8 +262,12 @@ class _HomeState extends State<Home> {
                             ElevatedButton(
                               onPressed: () async {
                                 if (widget.balance > 0) {
+                                  setState(() {
+                                    isLoading = true;
+                                  });
                                   result = [];
-                                  Map resMap = await getData();
+                                  Map resMap = {};
+                                  resMap = await getData();
                                   // if (widget.balance < result2.length) {
                                   //   result = [];
                                   //   for (int i = 0; i < widget.balance; i++) {
@@ -283,12 +280,9 @@ class _HomeState extends State<Home> {
                                   // }
                                   result = resMap['data'];
 
-                                  GetStorage s = GetStorage();
-                                  s.write('balance', widget.balance);
-                                  result = List.from(result);
-                                  result.shuffle();
-
                                   setState(() {
+                                    widget.balance = resMap['balance'];
+                                    isLoading = false;
                                     fbid.text = '';
                                     first_name.text = '';
                                     last_name.text = '';
@@ -516,24 +510,23 @@ class _HomeState extends State<Home> {
                                     ElevatedButton(
                                       onPressed: () async {
                                         if (widget.balance > 0) {
+                                          setState(() {
+                                            isLoading=true;
+                                          });
                                           List result2 = await getIds(ids);
-                                          print(result2);
-                                          if (widget.balance < result2.length) {
-                                            for (int i = 0;
-                                                i < widget.balance;
-                                                i++) {
-                                              result.add(result2[i]);
-                                            }
-                                            widget.balance = 0;
-                                          } else {
-                                            widget.balance -= result2.length;
+                                          // if (widget.balance < result2.length) {
+                                          //   for (int i = 0;
+                                          //       i < widget.balance;
+                                          //       i++) {
+                                          //     result.add(result2[i]);
+                                          //   }
+                                          //   widget.balance = 0;
+                                          // } else {
+                                          //   widget.balance -= result2.length;
+                                          //   result = result2;
+                                          // }
                                             result = result2;
-                                          }
-                                          result = List.from(result);
-                                          result.shuffle();
 
-                                          GetStorage s = GetStorage();
-                                          s.write('balance', widget.balance);
                                           dataRows = result.map((e) {
                                             return DataRow(cells: [
                                               DataCell(
@@ -543,7 +536,9 @@ class _HomeState extends State<Home> {
                                               DataCell(Text(e['last_name'])),
                                             ]);
                                           }).toList();
-                                          setState(() {});
+                                          setState(() {
+                                            isLoading=false;
+                                          });
                                         } else {
                                           Get.snackbar('Expired Balance',
                                               'recharge your balance',
