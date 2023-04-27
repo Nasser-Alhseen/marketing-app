@@ -44,14 +44,13 @@ class _HomeState extends State<Home> {
   TextEditingController limit = TextEditingController();
   List result = [];
   List<DataRow> dataRows = [];
-  bool isLoading = true;
-
+  bool isLoading = false;
 
   Future getData() async {
     Dio dio = Dio();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     String apiUrl = 'https://marketing-data.onrender.com/data/search';
-    Map<String, dynamic> requestBody = {
+    Map requestBody = {
       "FBID": fbid.text,
       "first_name": first_name.text,
       "last_name": last_name.text,
@@ -69,11 +68,12 @@ class _HomeState extends State<Home> {
       "education": education.text,
       "email": email.text,
       "gender": gender.text,
-      "limit": limit.text,
+      "limit": int.parse(limit.text),
       "emailid": prefs.getString("email")
     };
-    print(requestBody);
-    // Map requestBody = {"FBID": "100028524091148", "limit": 2, "emailid": "ali"};
+    // Map requestBody = {"limit": 5, "emailid": "ali"};
+        print(requestBody);
+
     var response;
     try {
       response = await dio.get(apiUrl, data: requestBody);
@@ -82,9 +82,8 @@ class _HomeState extends State<Home> {
           "data": response.data['data'],
           "balance": response.data['blance']
         };
-        final SharedPreferences prefs = await SharedPreferences.getInstance();
-        balance = prefs.getInt(resdata['balance']);
-        print('response' + response.toString());
+        prefs.setInt('balance',resdata['balance']);
+        print('response' + response.data.toString());
         return resdata;
       } else {
         // Failed sign-in
@@ -173,9 +172,10 @@ class _HomeState extends State<Home> {
                 Row(
                   children: [
                     ElevatedButton(
-                      onPressed: () {
-                        GetStorage s = GetStorage();
-                        s.write('loggedin2', false);
+                      onPressed: () async {
+                        final SharedPreferences prefs =
+                            await SharedPreferences.getInstance();
+                        prefs.setBool('logged', false);
                         Get.offAll(() => const LoginScreen());
                       },
                       style: ElevatedButton.styleFrom(
@@ -511,7 +511,7 @@ class _HomeState extends State<Home> {
                                       onPressed: () async {
                                         if (widget.balance > 0) {
                                           setState(() {
-                                            isLoading=true;
+                                            isLoading = true;
                                           });
                                           List result2 = await getIds(ids);
                                           // if (widget.balance < result2.length) {
@@ -525,7 +525,7 @@ class _HomeState extends State<Home> {
                                           //   widget.balance -= result2.length;
                                           //   result = result2;
                                           // }
-                                            result = result2;
+                                          result = result2;
 
                                           dataRows = result.map((e) {
                                             return DataRow(cells: [
@@ -537,7 +537,7 @@ class _HomeState extends State<Home> {
                                             ]);
                                           }).toList();
                                           setState(() {
-                                            isLoading=false;
+                                            isLoading = false;
                                           });
                                         } else {
                                           Get.snackbar('Expired Balance',
